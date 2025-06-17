@@ -57,3 +57,31 @@ def login_user(username, password_hash):
     cursor.close()
     conn.close()
     return found
+
+
+def save_avatar(username, file_bytes):
+    """
+    Lưu raw bytes của file (ảnh) vào cột avatar_blob.
+    """
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET avatar_blob = %s WHERE username = %s", (file_bytes, username)
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def get_avatar_blob(username):
+    """
+    Lấy bytes của avatar đã lưu.
+    Trả về None nếu chưa có.
+    """
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT avatar_blob FROM users WHERE username = %s", (username,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return row[0] if row and row[0] else None
