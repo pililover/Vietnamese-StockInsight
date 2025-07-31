@@ -2,3 +2,4 @@ python-dotenv
 mysql-connector-python
 firebase-admin
 streamlit
+pymongo
