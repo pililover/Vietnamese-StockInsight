@@ -2,19 +2,19 @@ import os
 import hashlib
 from dotenv import load_dotenv
 
-import mysql.connector
+from pymongo import MongoClient
+from bson.binary import Binary
+
+load_dotenv()
+
+mongo_uri = os.getenv("MONGO_URI")
+mongo_dbname = os.getenv("MONGO_DBNAME", "test")
 
 
-mysql_config = {
-    "host": os.getenv("MYSQL_HOST", "db"),
-    "user": os.getenv("MYSQL_USER"),
-    "password": os.getenv("MYSQL_PASSWORD"),
-    "database": os.getenv("MYSQL_DATABASE"),
-}
-
-
-def get_mysql_connection():
-    return mysql.connector.connect(**mysql_config)
+def get_mongo_collection():
+    client = MongoClient(mongo_uri)
+    db = client[mongo_dbname]
+    return db["users"]
 
 
 def register_user(username, password_hash):
@@ -22,22 +22,15 @@ def register_user(username, password_hash):
     Trả về True nếu đăng ký thành công,
     False nếu username đã tồn tại hoặc có lỗi khác.
     """
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
+    users = get_mongo_collection()
     try:
-        # Chèn thẳng vào bảng users đã có sẵn
-        cursor.execute(
-            "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
-            (username, password_hash),
-        )
-        conn.commit()
+        if users.find_one({"username": username}):
+            return False  # Đã tồn tại username
+        users.insert_one({"username": username, "password_hash": password_hash})
         return True
-    except mysql.connector.IntegrityError:
-        # Đây sẽ bắt trường hợp username trùng (UNIQUE constraint)
+    except Exception as e:
+        print(e)
         return False
-    finally:
-        cursor.close()
-        conn.close()
 
 
 def login_user(username, password_hash):
@@ -45,15 +38,29 @@ def login_user(username, password_hash):
     Trả về True nếu tìm thấy username + password_hash khớp,
     False nếu không khớp hoặc có lỗi.
     """
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT id FROM users WHERE username = %s AND password_hash = %s",
-        (username, password_hash),
+    users = get_mongo_collection()
+    return (
+        users.find_one({"username": username, "password_hash": password_hash})
+        is not None
     )
-    found = cursor.fetchone() is not None
 
-    cursor.close()
-    conn.close()
-    return found
+
+def save_avatar(username, file_bytes):
+    """
+    Lưu raw bytes của file (ảnh) vào cột avatar_blob.
+    """
+    users = get_mongo_collection()
+    # Lưu file_bytes dưới dạng Binary cho MongoDB
+    users.update_one(
+        {"username": username}, {"$set": {"avatar_blob": Binary(file_bytes)}}
+    )
+
+
+def get_avatar_blob(username):
+    """
+    Lấy bytes của avatar đã lưu.
+    Trả về None nếu chưa có.
+    """
+    users = get_mongo_collection()
+    user = users.find_one({"username": username}, {"avatar_blob": 1})
+    return user.get("avatar_blob") if user and "avatar_blob" in user else None
