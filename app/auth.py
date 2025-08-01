@@ -1,14 +1,18 @@
 import os
-import hashlib
 from dotenv import load_dotenv
-
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth
 from pymongo import MongoClient
 from bson.binary import Binary
 
 load_dotenv()
 
+if not firebase_admin._apps:
+    cred = credentials.Certificate(os.getenv("FIREBASE_ADMIN_KEY"))
+    firebase_admin.initialize_app(cred)
+
 mongo_uri = os.getenv("MONGO_URI")
-mongo_dbname = os.getenv("MONGO_DBNAME", "test")
+mongo_dbname = os.getenv("MONGO_DBNAME")
 
 
 def get_mongo_collection():
@@ -17,50 +21,40 @@ def get_mongo_collection():
     return db["users"]
 
 
-def register_user(username, password_hash):
-    """
-    Trả về True nếu đăng ký thành công,
-    False nếu username đã tồn tại hoặc có lỗi khác.
-    """
-    users = get_mongo_collection()
+def verify_firebase_token(id_token):
     try:
-        if users.find_one({"username": username}):
-            return False  # Đã tồn tại username
-        users.insert_one({"username": username, "password_hash": password_hash})
-        return True
+        decoded = firebase_auth.verify_id_token(id_token)
+        return decoded
     except Exception as e:
-        print(e)
-        return False
+        print("Token verify fail:", e)
+        return None
 
 
-def login_user(username, password_hash):
-    """
-    Trả về True nếu tìm thấy username + password_hash khớp,
-    False nếu không khớp hoặc có lỗi.
-    """
+def register_user_to_mongo(uid, email, user_name):
     users = get_mongo_collection()
-    return (
-        users.find_one({"username": username, "password_hash": password_hash})
-        is not None
-    )
+    if not users.find_one({"uid": uid}):
+        users.insert_one({"uid": uid, "email": email, "user_name": user_name})
+    return True
 
 
-def save_avatar(username, file_bytes):
-    """
-    Lưu raw bytes của file (ảnh) vào cột avatar_blob.
-    """
+def save_avatar(uid, file_bytes):
     users = get_mongo_collection()
-    # Lưu file_bytes dưới dạng Binary cho MongoDB
     users.update_one(
-        {"username": username}, {"$set": {"avatar_blob": Binary(file_bytes)}}
+        {"uid": uid}, {"$set": {"avatar_blob": Binary(file_bytes)}}, upsert=True
     )
 
 
-def get_avatar_blob(username):
-    """
-    Lấy bytes của avatar đã lưu.
-    Trả về None nếu chưa có.
-    """
+def get_avatar_blob(uid):
     users = get_mongo_collection()
-    user = users.find_one({"username": username}, {"avatar_blob": 1})
+    user = users.find_one({"uid": uid}, {"avatar_blob": 1})
     return user.get("avatar_blob") if user and "avatar_blob" in user else None
+
+
+def get_user_profile(uid):
+    users = get_mongo_collection()
+    return users.find_one({"uid": uid})
+
+
+def update_username_in_mongo(uid, new_username):
+    users = get_mongo_collection()
+    users.update_one({"uid": uid}, {"$set": {"user_name": new_username}})
