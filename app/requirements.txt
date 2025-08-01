@@ -3,3 +3,7 @@ mysql-connector-python
 firebase-admin
 streamlit
 pymongo
+streamlit-javascript
+pyrebase4
+pycryptodome
+Crypto
