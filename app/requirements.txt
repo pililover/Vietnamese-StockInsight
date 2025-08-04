@@ -1,5 +1,9 @@
 python-dotenv
 mysql-connector-python
 firebase-admin
-streamlit>=1.18.0
-pillow
+streamlit
+pymongo
+streamlit-javascript
+pyrebase4
+pycryptodome
+Crypto
