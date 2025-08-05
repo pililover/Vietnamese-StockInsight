@@ -61,9 +61,10 @@ def render_avatar(uid):
 if "uid" not in st.session_state:
     tab = st.radio("Bạn đã có tài khoản chưa?", ("Đăng nhập", "Đăng ký"))
     email = st.text_input("Email", key="email")
+    if tab == "Đăng ký" :
+        user_name = st.text_input("Tên người dùng", key="user_name")
     password = st.text_input("Mật khẩu", type="password", key="password")
     if tab == "Đăng ký":
-        user_name = st.text_input("Tên người dùng", key="user_name")
         password_confirm = st.text_input(
             "Nhập lại mật khẩu", type="password", key="password2"
         )
