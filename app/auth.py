@@ -32,7 +32,9 @@ def verify_firebase_token(id_token):
 
 def register_user_to_mongo(uid, email, user_name):
     users = get_mongo_collection()
+    
     if not users.find_one({"uid": uid}):
+        print("Registering new user:", uid, email, user_name)
         users.insert_one({"uid": uid, "email": email, "user_name": user_name})
     return True
 
