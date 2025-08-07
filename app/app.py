@@ -43,8 +43,8 @@ st.markdown("""
         padding: 2rem 1rem;
     }
 
-    /* === Card styling with "frosted glass" effect === */
-    div[data-testid="stTabs-panel"], .profile-container {
+    /* === Card styling with "frosted glass" effect (Applied to Tabs only) === */
+    div[data-testid="stTabs-panel"] {
         background-color: rgba(30, 41, 59, 0.5);
         backdrop-filter: blur(12px);
         border-radius: 16px;
@@ -111,17 +111,6 @@ st.markdown("""
         margin-bottom: 2rem;
     }
     
-    /* === Profile card specific styling === */
-    .profile-container {
-        text-align: center;
-    }
-    .profile-container h3 {
-        color: #ffffff;
-    }
-    .profile-container p {
-        color: #94a3b8;
-    }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -163,7 +152,7 @@ if "uid" not in st.session_state:
     with login_tab:
         email_login = st.text_input("Email", key="email_login", placeholder="you@example.com")
         password_login = st.text_input("Mật khẩu", type="password", key="password_login", placeholder="••••••••")
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
         if st.button("Đăng nhập", key="login_btn", use_container_width=True):
             if not email_login or not password_login:
                 st.warning("Vui lòng nhập đầy đủ email và mật khẩu.")
@@ -190,40 +179,44 @@ if "uid" not in st.session_state:
 
     # --- FORM ĐĂNG KÝ ---
     with register_tab:
-        user_name_reg = st.text_input("Tên người dùng", key="user_name_reg", placeholder="Nguyen Van A")
-        email_reg = st.text_input("Email", key="email_reg", placeholder="you@example.com")
-        password_reg = st.text_input("Mật khẩu", type="password", key="password_reg", placeholder="••••••••")
-        password_confirm_reg = st.text_input("Nhập lại mật khẩu", type="password", key="password_confirm_reg", placeholder="••••••••")
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Đăng ký", key="register_btn", use_container_width=True):
-            if not email_reg or not password_reg or not password_confirm_reg or not user_name_reg:
-                st.warning("Vui lòng nhập đầy đủ thông tin.")
-            elif password_reg != password_confirm_reg:
-                st.warning("Mật khẩu không khớp.")
-            else:
-                try:
-                    reg = auth_fb.create_user_with_email_and_password(email_reg, password_reg)
-                    register_user_to_mongo(reg["localId"], email_reg, user_name_reg)
-                    st.success("Đăng ký thành công! Vui lòng chuyển qua tab Đăng nhập để vào tài khoản.")
-                    st.balloons()
-                except Exception as e:
-                    err = str(e)
-                    if "EMAIL_EXISTS" in err:
-                        st.error("Email đã tồn tại!")
-                    elif "WEAK_PASSWORD" in err:
-                        st.error("Mật khẩu phải có ít nhất 6 ký tự!")
-                    else:
-                        st.error("Không thể đăng ký. Vui lòng thử lại.")
+        with st.form("registration_form", clear_on_submit=True):
+            user_name_reg = st.text_input("Tên người dùng", placeholder="Nguyen Van A")
+            email_reg = st.text_input("Email", placeholder="you@example.com")
+            password_reg = st.text_input("Mật khẩu", type="password", placeholder="••••••••")
+            password_confirm_reg = st.text_input("Nhập lại mật khẩu", type="password", placeholder="••••••••")
+            st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
+            submitted = st.form_submit_button("Đăng ký", use_container_width=True)
+
+            if submitted:
+                if not email_reg or not password_reg or not password_confirm_reg or not user_name_reg:
+                    st.warning("Vui lòng nhập đầy đủ thông tin.")
+                elif password_reg != password_confirm_reg:
+                    st.warning("Mật khẩu không khớp.")
+                else:
+                    try:
+                        reg = auth_fb.create_user_with_email_and_password(email_reg, password_reg)
+                        register_user_to_mongo(reg["localId"], email_reg, user_name_reg)
+                        st.success("Đăng ký thành công! Giờ bạn có thể đăng nhập.")
+                        st.balloons()
+                    except Exception as e:
+                        err = str(e)
+                        if "EMAIL_EXISTS" in err:
+                            st.error("Email đã tồn tại!")
+                        elif "WEAK_PASSWORD" in err:
+                            st.error("Mật khẩu phải có ít nhất 6 ký tự!")
+                        else:
+                            st.error("Không thể đăng ký. Vui lòng thử lại.")
 else:
     # ==== TRANG CÁ NHÂN (PROFILE VIEW) ====
-    with st.container():
-        st.markdown("<div class='profile-container'>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([0.5, 3, 0.5])
+
+    with col2:
         profile = get_user_profile(st.session_state["uid"])
         
         render_avatar(st.session_state["uid"])
 
-        st.markdown(f"<h3 style='margin-bottom:0.5rem;'>{profile.get('user_name', '')}</h3>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color:#94a3b8; margin-bottom: 2rem;'>{st.session_state['user_email']}</p>", unsafe_allow_html=True)
+        st.html(f"<h3 style='text-align: center; color: #ffffff; margin-bottom: 0.25rem; font-weight: 600;'>{profile.get('user_name', '')}</h3>")
+        st.html(f"<p style='text-align: center; color: #94a3b8; margin-bottom: 2rem;'>{st.session_state['user_email']}</p>")
 
         with st.expander("⚙️ Chỉnh sửa thông tin"):
             new_username = st.text_input(
@@ -252,10 +245,8 @@ else:
                 else:
                     st.warning("Hãy chọn ảnh trước khi lưu.")
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        
+        st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
+    
         if st.button("Đăng xuất", use_container_width=True, key="logout_btn"):
             st.session_state.clear()
             st.rerun()
-            
-        st.markdown("</div>", unsafe_allow_html=True)
