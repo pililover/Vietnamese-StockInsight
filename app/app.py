@@ -1,6 +1,11 @@
 import io
 import streamlit as st
 import pyrebase
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from auth import (
     verify_firebase_token,
     register_user_to_mongo,
@@ -10,6 +15,12 @@ from auth import (
     update_username_in_mongo,
 )
 import base64
+import json
+from report_generator import generate_stock_report
+import pandas as pd
+import numpy as np
+import requests
+
 
 # ==== Firebase config ====
 firebase_config = {
@@ -24,6 +35,39 @@ firebase_config = {
 
 firebase = pyrebase.initialize_app(firebase_config)
 auth_fb = firebase.auth()
+
+# ==== Gemini API Key ====
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+# ==== Hàm gọi Gemnini
+def call_genai_summary(report_data, stock_code, time_period):
+    api_key = gemini_api_key
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={api_key}"
+
+    prompt = f"""
+    Hãy tóm tắt ngắn gọn, chuyên nghiệp về mã cổ phiếu {stock_code} trong giai đoạn {time_period[0]} đến {time_period[1]} dựa trên dữ liệu JSON sau:
+    {json.dumps(report_data, ensure_ascii=False, indent=2)}
+    """
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        summary = data["candidates"][0]["content"]["parts"][0]["text"]
+        return summary
+    except Exception as e:
+        return f"Lỗi khi gọi Gemini API: {e}"
+
 
 # ==== Cấu hình trang và CSS tùy chỉnh ====
 st.set_page_config(page_title="Stock Insights", page_icon="🔮", layout="centered")
@@ -250,3 +294,133 @@ else:
         if st.button("Đăng xuất", use_container_width=True, key="logout_btn"):
             st.session_state.clear()
             st.rerun()
+            
+    # ==== TRANG BÁO CÁO LAI (ĐÃ SỬA ĐỔI) ====
+    st.markdown("<h2 style='text-align:center; color: #ffffff; margin-top: 2rem;'>📊 Báo cáo Cổ phiếu Thông minh</h2>", unsafe_allow_html=True)
+    
+    with st.form("report_form"):
+        stock_code_input = st.text_input("Nhập mã cổ phiếu (ví dụ: VIC, HPG...)", value="HPG").upper()
+        
+        col_start, col_end = st.columns(2)
+        with col_start:
+            start_date = st.date_input("Từ ngày", value=pd.to_datetime("2025-05-01"))
+        with col_end:
+            end_date = st.date_input("Đến ngày", value=pd.to_datetime("now"))
+            
+        submitted = st.form_submit_button("Tạo báo cáo", use_container_width=True)
+
+    if submitted and stock_code_input:
+        with st.spinner(f'Đang tổng hợp và phân tích dữ liệu cho mã {stock_code_input}...'):
+            report_data = generate_stock_report(stock_code_input, (str(start_date), str(end_date)))
+            
+            # Chỉ gọi GenAI nếu có dữ liệu để phân tích
+            if report_data["overall_sentiment"]["positive_mentions"] > 0 or report_data["overall_sentiment"]["negative_mentions"] > 0:
+                summary = call_genai_summary(report_data, stock_code_input, (str(start_date), str(end_date)))
+            else:
+                summary = f"Không tìm thấy đủ dữ liệu nổi bật cho mã **{stock_code_input}** trong khoảng thời gian đã chọn để tạo tóm tắt AI."
+
+        # --- BẮT ĐẦU HIỂN THỊ BÁO CÁO ---
+        
+        st.markdown(f"---")
+        st.markdown(f"<h3 style='text-align: center; color: #30cfd0;'>Báo cáo Phân tích cho {report_data['stock_code']}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center; color: #94a3b8;'>Giai đoạn: {report_data['report_period']}</p>", unsafe_allow_html=True)
+
+        # 1. Tóm tắt từ GenAI
+        st.markdown("#### 🤖 Tóm tắt từ AI")
+        st.info(summary)
+
+        # 2. Tổng quan Cảm xúc
+        st.markdown("#### 📊 Tổng quan Cảm xúc")
+        sentiment = report_data['overall_sentiment']
+        score = sentiment['score']
+        trend_color = "normal"
+        if sentiment['trend'] == "Tích cực": trend_color = "normal"
+        if sentiment['trend'] == "Tiêu cực": trend_color = "inverse"
+        
+        st.metric(
+            label="Điểm Cảm xúc (có trọng số thời gian)", 
+            value=f"{score:.2f}" if score is not None else "N/A",
+            delta=sentiment['trend'],
+            delta_color=trend_color
+        )
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("👍 Tích cực", sentiment['positive_mentions'])
+        col2.metric("👎 Tiêu cực", sentiment['negative_mentions'])
+        col3.metric("😐 Trung tính", sentiment['neutral_mentions'])
+
+        # 3. Các Bảng Chi tiết
+        st.markdown("---")
+        
+        col_events, col_risks = st.columns(2)
+        with col_events:
+            st.markdown("#### ⚡ Sự kiện Nổi bật")
+            if report_data["key_events"]:
+                # Kiểm tra key thực tế
+                df_events = pd.DataFrame(report_data["key_events"])
+                # Đổi tên cột nếu cần
+                if 'avg_sentiment' in df_events.columns:
+                    df_events = df_events.rename(columns={'entity_text': 'Sự kiện', 'avg_sentiment': 'Sentiment'})
+                    show_cols = ['Sự kiện', 'count', 'Sentiment']
+                elif 'sentiment' in df_events.columns:
+                    df_events = df_events.rename(columns={'entity_text': 'Sự kiện'})
+                    show_cols = ['Sự kiện', 'count', 'sentiment']
+                else:
+                    df_events = df_events.rename(columns={'entity_text': 'Sự kiện'})
+                    show_cols = ['Sự kiện', 'count']
+                st.dataframe(df_events[show_cols], use_container_width=True)
+            else:
+                st.write("Không có sự kiện nổi bật.")
+
+        with col_risks:
+            st.markdown("#### ⚠️ Rủi ro được đề cập")
+            if report_data["key_risks_mentioned"]:
+                df_risks = pd.DataFrame(report_data["key_risks_mentioned"])
+                if 'avg_sentiment' in df_risks.columns:
+                    df_risks = df_risks.rename(columns={'entity_text': 'Rủi ro', 'avg_sentiment': 'Sentiment'})
+                    show_cols = ['Rủi ro', 'count', 'Sentiment']
+                elif 'sentiment' in df_risks.columns:
+                    df_risks = df_risks.rename(columns={'entity_text': 'Rủi ro'})
+                    show_cols = ['Rủi ro', 'count', 'sentiment']
+                else:
+                    df_risks = df_risks.rename(columns={'entity_text': 'Rủi ro'})
+                    show_cols = ['Rủi ro', 'count']
+                st.dataframe(df_risks[show_cols], use_container_width=True)
+            else:
+                st.write("Không có rủi ro nổi bật.")
+
+        st.markdown("#### 📈 Hành động Giá Chính")
+        if report_data["key_price_actions"]:
+            df_price = pd.DataFrame(report_data["key_price_actions"])
+            if 'avg_sentiment' in df_price.columns:
+                df_price = df_price.rename(columns={'entity_text': 'Hành động giá', 'avg_sentiment': 'Sentiment'})
+                show_cols = ['Hành động giá', 'count', 'Sentiment']
+            elif 'sentiment' in df_price.columns:
+                df_price = df_price.rename(columns={'entity_text': 'Hành động giá'})
+                show_cols = ['Hành động giá', 'count', 'sentiment']
+            else:
+                df_price = df_price.rename(columns={'entity_text': 'Hành động giá'})
+                show_cols = ['Hành động giá', 'count']
+            st.dataframe(df_price[show_cols], use_container_width=True)
+        else:
+            st.write("Không có hành động giá nổi bật.")
+            
+        # 4. Thực thể liên quan
+        st.markdown("---")
+        st.markdown("#### 🔗 Các Thực thể Liên quan nhiều nhất")
+        related = report_data['top_related_entities']
+        if any(related.values()):
+            for etype, entities in related.items():
+                if entities:
+                    st.markdown(f"**{etype.replace('_', ' ').title()}:** {', '.join(entities)}")
+        else:
+            st.write("Không tìm thấy thực thể liên quan nổi bật.")
+            
+        # 5. Nguồn bài viết
+        st.markdown("---")
+        st.markdown("#### 📰 Nguồn Bài viết Tham khảo")
+        if report_data["source_articles"]:
+            for article in report_data["source_articles"]:
+                st.markdown(f"- [{article['title']}]({article['source_url']}) - *Cảm xúc: {article['sentiment_label']}*")
+        else:
+            st.write("Không có bài viết nào trong khoảng thời gian này.")
