@@ -7,8 +7,11 @@ from bson.binary import Binary
 
 load_dotenv()
 
+cred_path = os.getenv("FIREBASE_ADMIN_KEY")
+if not cred_path:
+    raise ValueError("FIREBASE_ADMIN_KEY chưa được khai báo trong .env hoặc đường dẫn bị sai!")
 if not firebase_admin._apps:
-    cred = credentials.Certificate(os.getenv("FIREBASE_ADMIN_KEY"))
+    cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
 
 mongo_uri = os.getenv("MONGO_URI")
