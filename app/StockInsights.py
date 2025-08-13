@@ -4,12 +4,18 @@ from auth import (
     register_user_to_mongo,
     get_user_profile,
 )
-from utils import initialize_firebase, load_css
+from utils import initialize_firebase, load_css, render_menu
 
 # ==== Cấu hình trang và tải CSS ====
 st.set_page_config(page_title="Đăng nhập - Stock Insights", page_icon="🔮", layout="centered")
 load_css()
 auth_fb = initialize_firebase()
+
+# Define the pages
+#login = st.Page("StockInsights.py", title="Đăng nhập")
+report = st.Page("pages/1_Báo_cáo.py", title="Báo cáo", icon="📊")
+history = st.Page("pages/3_Lịch_sử.py", title="Lịch sử", icon="📜")
+accounts = st.Page("pages/2_Tài_khoản.py", title="Tài khoản", icon="⚙", default=True)
 
 # ==== Giao diện Đăng nhập / Đăng ký ====
 if "uid" not in st.session_state:
@@ -69,10 +75,15 @@ if "uid" not in st.session_state:
                         else:
                             st.error("Không thể đăng ký. Vui lòng thử lại.")
     st.markdown('</div>', unsafe_allow_html=True)
-
-else:
+    
+elif "uid" in st.session_state:
     # Nếu đã đăng nhập, chào mừng và hướng dẫn
-    st.markdown("<h1>Chào mừng trở lại!</h1>", unsafe_allow_html=True)
-    st.info("Sử dụng thanh điều hướng bên trái để truy cập các tính năng. 👈")
-    st.balloons()
+    pg = st.navigation(
+        [report, history, accounts],
+        position="top"
+    )
+    pg.run()
 
+    # st.markdown("<h1>Chào mừng trở lại!</h1>", unsafe_allow_html=True)
+    # st.info("Sử dụng thanh điều hướng bên trái để truy cập các tính năng. 👈")
+    # st.balloons()
