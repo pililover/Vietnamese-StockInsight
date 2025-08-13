@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
 from datetime import datetime
+import streamlit as st
 import os
 
 def get_db_path():
@@ -121,3 +122,123 @@ def generate_stock_report(stock_code, time_period):
         report["source_articles"] = df_articles.to_dict('records')
 
     return report
+
+# --- HIỂN THỊ BÁO CÁO ---
+def show_report(report_data, summary, stock_code_input):
+    st.markdown(
+        f"<h3 style='text-align: center; color: #30cfd0; margin-top:2rem;'>Báo cáo Phân tích cho {report_data.get('stock_code', stock_code_input)}</h3>", unsafe_allow_html=True)
+    st.markdown(
+        f"<p style='text-align: center; color: #94a3b8;'>Giai đoạn: {report_data.get('report_period', 'N/A')}</p>", unsafe_allow_html=True)
+
+    st.markdown("#### 🤖 Tóm tắt từ AI")
+    st.info(summary)
+
+    # Tổng quan cảm xúc
+    st.markdown("#### 📊 Tổng quan Cảm xúc")
+    sentiment = report_data['overall_sentiment']
+    score = sentiment['score']
+    trend_color = "normal"
+    if sentiment['trend'] == "Tích cực":
+        trend_color = "normal"
+        if sentiment['trend'] == "Tiêu cực":
+            trend_color = "inverse"
+
+    st.metric(
+        label="Điểm Cảm xúc (có trọng số thời gian)",
+        value=f"{score:.2f}" if score is not None else "N/A",
+        delta=sentiment['trend'],
+        delta_color=trend_color
+    )
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("👍 Tích cực", sentiment['positive_mentions'])
+    col2.metric("👎 Tiêu cực", sentiment['negative_mentions'])
+    col3.metric("😐 Trung tính", sentiment['neutral_mentions'])
+
+    # Các bảng chi tiết
+    st.markdown("---")
+
+    col_events, col_risks = st.columns(2)
+    with col_events:
+        st.markdown("#### ⚡ Sự kiện Nổi bật")
+        if report_data["key_events"]:
+            # Kiểm tra key thực tế
+            df_events = pd.DataFrame(report_data["key_events"])
+            if 'avg_sentiment' in df_events.columns:
+                df_events = df_events.rename(
+                    columns={'entity_text': 'Sự kiện', 'avg_sentiment': 'Sentiment'})
+                show_cols = ['Sự kiện', 'count', 'Sentiment']
+            elif 'sentiment' in df_events.columns:
+                df_events = df_events.rename(
+                    columns={'entity_text': 'Sự kiện'})
+                show_cols = ['Sự kiện', 'count', 'sentiment']
+            else:
+                df_events = df_events.rename(
+                    columns={'entity_text': 'Sự kiện'})
+                show_cols = ['Sự kiện', 'count']
+            st.dataframe(df_events[show_cols], use_container_width=True)
+        else:
+            st.write("Không có sự kiện nổi bật.")
+
+    with col_risks:
+        st.markdown("#### ⚠️ Rủi ro được đề cập")
+        if report_data["key_risks_mentioned"]:
+            df_risks = pd.DataFrame(report_data["key_risks_mentioned"])
+            if 'avg_sentiment' in df_risks.columns:
+                df_risks = df_risks.rename(
+                    columns={'entity_text': 'Rủi ro', 'avg_sentiment': 'Sentiment'})
+                show_cols = ['Rủi ro', 'count', 'Sentiment']
+            elif 'sentiment' in df_risks.columns:
+                df_risks = df_risks.rename(
+                    columns={'entity_text': 'Rủi ro'})
+                show_cols = ['Rủi ro', 'count', 'sentiment']
+            else:
+                df_risks = df_risks.rename(
+                    columns={'entity_text': 'Rủi ro'})
+                show_cols = ['Rủi ro', 'count']
+            st.dataframe(df_risks[show_cols], use_container_width=True)
+        else:
+            st.write("Không có rủi ro nổi bật.")
+
+    st.markdown("#### 📈 Hành động Giá Chính")
+    if report_data["key_price_actions"]:
+        df_price = pd.DataFrame(report_data["key_price_actions"])
+        if 'avg_sentiment' in df_price.columns:
+            df_price = df_price.rename(
+                columns={'entity_text': 'Hành động giá', 'avg_sentiment': 'Sentiment'})
+            show_cols = ['Hành động giá', 'count', 'Sentiment']
+        elif 'sentiment' in df_price.columns:
+            df_price = df_price.rename(
+                columns={'entity_text': 'Hành động giá'})
+            show_cols = ['Hành động giá', 'count', 'sentiment']
+        else:
+            df_price = df_price.rename(
+                columns={'entity_text': 'Hành động giá'})
+            show_cols = ['Hành động giá', 'count']
+        st.dataframe(df_price[show_cols], use_container_width=True)
+    else:
+        st.write("Không có hành động giá nổi bật.")
+
+    # Thực thể liên quan
+    st.markdown("---")
+    st.markdown("#### 🔗 Các Thực thể Liên quan nhiều nhất")
+    related = report_data['top_related_entities']
+    if any(related.values()):
+        for etype, entities in related.items():
+            if entities:
+                st.markdown(
+                    f"**{etype.replace('_', ' ').title()}:** {', '.join(entities)}")
+    else:
+        st.write("Không tìm thấy thực thể liên quan nổi bật.")
+
+    # Nguồn bài viết
+    st.markdown("---")
+    st.markdown("#### 📰 Nguồn Bài viết Tham khảo")
+    if report_data["source_articles"]:
+        for article in report_data["source_articles"]:
+            st.markdown(
+                f"- [{article['title']}]({article['source_url']}) - *Cảm xúc: {article['sentiment_label']}*")
+    else:
+        st.write("Không có bài viết nào trong khoảng thời gian này.")
+
+    st.markdown("</div>", unsafe_allow_html=True)

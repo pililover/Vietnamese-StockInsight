@@ -31,6 +31,9 @@ def load_css():
     """Tải CSS theme Cyberpunk Neon."""
     st.markdown("""
     <style>
+        /* === Hide default sidebar === */
+        section[data-testid="stSidebar"] {display: none;}
+
         /* === Main container styling === */
         .stApp {
             background-color: #0d1117;
@@ -129,6 +132,7 @@ def load_css():
         }
     </style>
     """, unsafe_allow_html=True)
+
 
 # ==== Hàm Render Avatar ====
 def render_avatar(uid, container, get_avatar_blob_func):

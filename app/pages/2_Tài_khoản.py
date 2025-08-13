@@ -56,4 +56,5 @@ with col_center:
 
     if st.button("Đăng xuất", use_container_width=True, key="logout_btn"):
         st.session_state.clear()
-        st.switch_page("Stock_Insights.py")
+        st.rerun()
+        #st.switch_page("StockInsights.py")
