@@ -4,7 +4,7 @@ from auth import (
     register_user_to_mongo,
     get_user_profile,
 )
-from utils import initialize_firebase, load_css, render_menu
+from utils import initialize_firebase, load_css
 
 # ==== Cấu hình trang và tải CSS ====
 st.set_page_config(page_title="Đăng nhập - Stock Insights", page_icon="🔮", layout="centered")
