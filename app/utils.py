@@ -13,13 +13,13 @@ def initialize_firebase():
     """Khởi tạo và trả về các đối tượng Firebase. Sử dụng singleton pattern."""
     if "firebase_app" not in st.session_state:
         firebase_config = {
-            "apiKey": os.getenv("FIREBASE_API_KEY", "AIzaSyBZCwLqhhkRm0_G1rOHBhc8ffV7RekdiHU"),
-            "authDomain": "stockinsights-840d9.firebaseapp.com",
-            "projectId": "stockinsights-840d9",
-            "storageBucket": "stockinsights-840d9.appspot.com",
-            "messagingSenderId": "585866525295",
-            "appId": "1:585866525295:web:ccfe3c1f16873802086b9a",
-            "databaseURL": "",
+            "apiKey": os.getenv("FIREBASE_API_KEY"),
+            "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
+            "projectId": os.getenv("FIREBASE_PROJECT_ID"),
+            "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
+            "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
+            "appId": os.getenv("FIREBASE_APP_ID"),
+            "databaseURL": os.getenv("FIREBASE_DATABASE_URL", ""),
         }
         st.session_state.firebase_app = pyrebase.initialize_app(firebase_config)
     
@@ -31,8 +31,9 @@ def load_css():
     """Tải CSS theme Cyberpunk Neon."""
     st.markdown("""
     <style>
-        /* === Hide default sidebar === */
+        /* === Hide default Streamlit elements === */
         section[data-testid="stSidebar"] {display: none;}
+        header {visibility: hidden;}
 
         /* === Main container styling === */
         .stApp {
@@ -42,12 +43,42 @@ def load_css():
         
         /* === Main content area styling === */
         .main .block-container {
-            max-width: 950px;
-            padding: 2rem 1.5rem;
+            max-width: 1100px; /* Rộng hơn cho layout mới */
+            padding: 1rem 1.5rem;
         }
-        /* CSS cho trang login/register hẹp hơn */
         .not-logged-in .main .block-container {
             max-width: 450px;
+        }
+
+        /* === Custom Navigation Bar === */
+        .nav-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 0.5rem;
+            background-color: rgba(30, 41, 59, 0.5);
+            border-radius: 12px;
+            border: 1px solid rgba(100, 116, 139, 0.3);
+        }
+        .nav-container .stButton>button {
+            background: transparent;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+        .nav-container .stButton>button:hover {
+            color: #ffffff;
+            border-color: rgba(48, 207, 208, 0.5);
+            box-shadow: none;
+            transform: none; /* FIX: Vô hiệu hóa hiệu ứng transform cho nút nav */
+        }
+        /* Style for the ACTIVE button */
+        .nav-container .stButton>button.active-nav-button {
+            color: #ffffff;
+            border-color: #30cfd0;
+            box-shadow: 0 0 15px rgba(48, 207, 208, 0.4);
         }
 
         /* === Card styling with "frosted glass" effect === */
@@ -60,19 +91,7 @@ def load_css():
             border: 1px solid rgba(100, 116, 139, 0.3);
         }
 
-        /* === Sidebar styling === */
-        div[data-testid="stSidebar"] > div:first-child {
-            background: linear-gradient(180deg, #16213e, #0d1117);
-            border-right: 1px solid rgba(100, 116, 139, 0.3);
-        }
-        div[data-testid="stSidebar"] h2 {
-            color: #ffffff;
-            text-align: center;
-            text-shadow: 0 0 5px #30cfd0;
-            margin-top: 1rem;
-        }
-
-        /* === Button styling === */
+        /* === General Button styling === */
         .stButton>button {
             border-radius: 8px;
             border: 1px solid #30cfd0;
@@ -86,17 +105,12 @@ def load_css():
             box-shadow: 0 0 20px #30cfd0;
             transform: translateY(-2px);
         }
-        .stButton>button:focus {
-            outline: none !important;
-            box-shadow: 0 0 25px #30cfd0 !important;
-        }
         
         /* === Input fields styling === */
         .stTextInput label, .stDateInput label {
             color: #c9d1d9 !important;
             font-weight: 600;
             margin-bottom: 0.5rem;
-            display: block;
         }
         .stTextInput>div>div>input, .stDateInput>div>div>input {
             background-color: rgba(15, 23, 42, 0.5);
@@ -109,9 +123,6 @@ def load_css():
             border-color: #30cfd0;
             box-shadow: 0 0 10px rgba(48, 207, 208, 0.5);
         }
-        .stTextInput>div>div>input::placeholder {
-            color: #94a3b8;
-        }
 
         /* === Header styling === */
         h1, h2 {
@@ -121,22 +132,11 @@ def load_css():
             letter-spacing: 1px;
             text-shadow: 0 0 10px rgba(48, 207, 208, 0.5);
         }
-        h1 { margin-bottom: 0.5rem; }
-        h2 { margin-top: 1rem; }
-        
-        /* === Sub-header for login/register === */
-        .auth-subheader {
-            text-align: center;
-            color: #94a3b8;
-            margin-bottom: 2rem;
-        }
     </style>
     """, unsafe_allow_html=True)
 
-
 # ==== Hàm Render Avatar ====
 def render_avatar(uid, container, get_avatar_blob_func):
-    """Render avatar trong một container cụ thể."""
     avatar_bytes = get_avatar_blob_func(uid)
     if avatar_bytes:
         img_base64 = base64.b64encode(avatar_bytes).decode()
@@ -152,15 +152,15 @@ def render_avatar(uid, container, get_avatar_blob_func):
         """
     container.html(f"<div style='display:flex; flex-direction:column; align-items:center; margin-bottom: 1rem;'>{avatar_html}</div>")
 
+
 # ==== Hàm gọi Gemini API ====
 def call_genai_summary(report_data, stock_code, time_period):
-    """Gọi Gemini API để lấy tóm tắt."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         st.error("Vui lòng cung cấp GEMINI_API_KEY trong file .env")
         return "Lỗi: Chưa cấu hình API Key."
         
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
     prompt = f"""
     Hãy tóm tắt ngắn gọn, chuyên nghiệp về mã cổ phiếu {stock_code} trong giai đoạn {time_period[0]} đến {time_period[1]} dựa trên dữ liệu JSON sau:
     {json.dumps(report_data, ensure_ascii=False, indent=2)}
