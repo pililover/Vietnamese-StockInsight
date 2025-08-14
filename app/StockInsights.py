@@ -12,13 +12,18 @@ load_css()
 auth_fb = initialize_firebase()
 
 # Define the pages
-#login = st.Page("StockInsights.py", title="Đăng nhập")
 report = st.Page("pages/1_Báo_cáo.py", title="Báo cáo", icon="📊")
 history = st.Page("pages/3_Lịch_sử.py", title="Lịch sử", icon="📜")
 accounts = st.Page("pages/2_Tài_khoản.py", title="Tài khoản", icon="⚙", default=True)
 
 # ==== Giao diện Đăng nhập / Đăng ký ====
 if "uid" not in st.session_state:
+    # Hide menu bar
+    pg = st.navigation(
+        [report, history, accounts],
+        position="hidden"
+    )
+    
     st.markdown('<div class="not-logged-in">', unsafe_allow_html=True)
     st.markdown("<h1>Stock Insights 🔮</h1>", unsafe_allow_html=True)
     st.markdown("<p class='auth-subheader'>Chào mừng! Vui lòng đăng nhập hoặc đăng ký.</p>", unsafe_allow_html=True)
