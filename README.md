@@ -1,6 +1,6 @@
 # Vietnamese-StockInsight
 
-## 🧑‍🤝‍🧑Group members
+## 🧑‍🤝‍🧑Group Members
 - Trình Cao An - 22127004
 - Nguyễn Kim Anh - 22127014
 - Võ Thị Kim Khôi - 22127214
@@ -18,7 +18,7 @@ In the data-driven financial market, the automated extraction and synthesis of i
 ## 📊Data
 All datasets for this project can be found here: [startlearning](https://drive.google.com/drive/folders/1Yo1gVdMeYXkhVb3G5pkMNIlYL9gWsjeK?usp=sharing)
 
-## 🤖Fine-tuned models used in this porject
+## 🤖Fine-tuned models used in this project
 - phoBERT for NER: [AnTrinh/my-phobert-ner](https://huggingface.co/AnTrinh/my-phobert-ner)
 - XLM-Roberta for NER: [PuppetLover/XLM-Roberta\NER](https://huggingface.co/PuppetLover/XLM-Roberta_NER)
 - phoBERT for sentiment analysis: [VTKK/phobert-sentiment-analysis](https://huggingface.co/VTKK/phobert-sentiment-analysis)
@@ -27,7 +27,7 @@ All datasets for this project can be found here: [startlearning](https://drive.g
 ```
 Vietnamese-StockInsight/
 |-- app/        # Source code for the web app
-│-- data/       # stock codes data files
+│-- data/       # Stock Codes data files
 │-- database/   # Knowledge Base data files
 │-- training/   # Model training scripts and notebooks
 │-- .env        # Environment configuration file
