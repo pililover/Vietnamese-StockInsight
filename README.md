@@ -3,7 +3,7 @@
 ## 🧑‍🤝‍🧑Group members
 - Trình Cao An - 22127004
 - Nguyễn Kim Anh - 22127014
-- Võ Thị Kim Khôi - 22127217
+- Võ Thị Kim Khôi - 22127214
 
 ## 📖Project Description
 In the data-driven financial market, the automated extraction and synthesis of information from unstructured news sources is a critical yet challenging task. Vietnamese stock market is experiencing rapid growth, accompanied by an significant increase in the volume of unstructured textual data. Manually processing this vast amount of information to extract timely and relevant insights is practically impossible. This project presents an system, using  Natural Language Processing (NLP), to transform raw Vietnamese financial news articles into structured, actionable intelligence reports.
